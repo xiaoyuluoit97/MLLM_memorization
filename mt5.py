@@ -39,13 +39,8 @@ cache_path = os.path.join(base_dir, "model")
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, cache_dir=cache_path)
 model = MT5ForConditionalGeneration.from_pretrained(MODEL_NAME, cache_dir=cache_path).to("cuda")
 
-#model = MT5ForConditionalGeneration.from_pretrained(
-#    "google/mt5-xl",
-#    cache_dir=cache_path,
-#    torch_dtype="auto",  # 自动用半精度（如果卡支持fp16）
-##    device_map="auto",   # 自动切分放GPU/CPU
-#)
-model.eval()  # ✅ 加上这个！
+
+model.eval()
 
 
 def extract_spans_from_tokens_precisely(ids, max_extra_id=4, eos_token_id=1):
@@ -94,9 +89,9 @@ def save_exact_match_samples_as_txt(
 
     with open(save_path, "a", encoding="utf-8") as f_out:
         for i, idx in enumerate(exact_match_indices):
-            # `idx` 仍然是原始 input_texts 的 index
+
             sample_input = tokenizer.decode(input_texts[idx], skip_special_tokens=True)
-            # 但 prediction/reference 都是 matched 子集，因此用 i 取
+
             reference = tokenizer.decode(target_batch[i], skip_special_tokens=True)
             prediction = tokenizer.decode(predicted_batch[i], skip_special_tokens=True)
 
@@ -206,7 +201,7 @@ def evaluate_predictions_token_level_precisely(lang,pred_ids_batch, target_ids_b
 
 
 def random_sample_and_corrupt_batch(text_list, tokenizer, num_tokens=100, corruption_rate=0.15, mean_span_length=3, seed=None):
-    # 一次性batch encode
+
     batch = tokenizer(text_list, return_tensors="pt", padding=True, truncation=False, add_special_tokens=False)
     input_ids_batch = batch['input_ids'].to("cuda")  # shape: (batch_size, seq_len)
 
@@ -222,7 +217,7 @@ def random_sample_and_corrupt_batch(text_list, tokenizer, num_tokens=100, corrup
         input_ids = input_ids[:seq_len]  # remove paddings
 
         if seq_len < num_tokens:
-            continue  # 跳过不足100 tokens的样本！
+            continue
 
         if seed is not None:
             random.seed(seed + i)
@@ -236,7 +231,7 @@ def random_sample_and_corrupt_batch(text_list, tokenizer, num_tokens=100, corrup
         num_spans = int(num_tokens_to_mask / mean_span_length)
 
         if num_spans == 0:
-            continue  # 如果算下来0个span，也跳过
+            continue
 
         lengths = [1] * num_spans
         remaining = num_tokens_to_mask - num_spans
@@ -246,7 +241,7 @@ def random_sample_and_corrupt_batch(text_list, tokenizer, num_tokens=100, corrup
             lengths[idx] += 1
             remaining -= 1
 
-        assert sum(lengths) == num_tokens_to_mask, "总mask数量不对！"
+        assert sum(lengths) == num_tokens_to_mask, "wrong total mask！"
 
         available_positions = list(range(seq_len))
         spans = []
@@ -258,7 +253,7 @@ def random_sample_and_corrupt_batch(text_list, tokenizer, num_tokens=100, corrup
                     possible_starts.append(pos)
 
             if not possible_starts:
-                raise ValueError(f"无法插入长度为{span_len}的span，文本空间不足！")
+                raise ValueError(f"can't insert {span_len} span，no enough length！")
 
             start_idx = random.choice(possible_starts)
             end_idx = start_idx + span_len
@@ -296,18 +291,16 @@ def random_sample_and_corrupt_batch(text_list, tokenizer, num_tokens=100, corrup
         selected_texts.append(selected_text)
 
     if len(corrupted_inputs) == 0:
-        raise ValueError("没有符合条件的样本，全部跳过了！")
+        raise ValueError("skip all！")
 
     corrupted_inputs_batch = torch.stack(corrupted_inputs, dim=0)
     target_outputs_batch = torch.stack(target_outputs, dim=0)
 
     return corrupted_inputs_batch, target_outputs_batch, selected_texts
-import numpy as np
+
 
 def compute_mean_and_confidence_interval(acc_list, confidence_level=0.95):
-    """
-    计算均值和置信区间
-    """
+
     arr = np.array(acc_list)
     mean = arr.mean()
     std = arr.std(ddof=1)
@@ -320,9 +313,7 @@ def compute_mean_and_confidence_interval(acc_list, confidence_level=0.95):
     return mean, ci
 
 def summarize_global_metrics(token_accs, span_accs, sample_accs):
-    """
-    输入3个列表，输出整体评估结果。
-    """
+
     token_mean, token_ci = compute_mean_and_confidence_interval(token_accs)
     span_mean, span_ci = compute_mean_and_confidence_interval(span_accs)
     sample_mean, _ = compute_mean_and_confidence_interval(sample_accs)
@@ -349,15 +340,13 @@ def summarize_global_metrics(token_accs, span_accs, sample_accs):
     }
 
 
-# 参数
 
-# 创建保存目录
 os.makedirs(result_dir, exist_ok=True)
 timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M")
-# 总结果大字典
+
 final_results = {}
 result_output_path = os.path.join(result_dir, f"T5style_memorization_{model_id}_{MAX_TOKEN}_{PREFIX}_{timestamp}.json")
-# 主循环
+
 for lang in languages:
     print(f"\n🌍 Processing Language: {lang}")
     file_path = os.path.join(data_dir, f"{lang}.jsonl")
@@ -382,7 +371,7 @@ for lang in languages:
                     num_tokens=MAX_TOKEN,
                     corruption_rate=SUFIX_RATIO,
                     mean_span_length=3,
-                    seed=seed  # 传固定的 seed
+                    seed=seed
                 )
                 with torch.no_grad():
                     output_ids = model.generate(
@@ -408,10 +397,10 @@ for lang in languages:
                 print(f"⚠️ Skip batch repeat {repeat_idx} (seed={seed}) due to error: {e}")
                 continue
 
-    # 每个语言完成后做统计
+
     lang_summary = summarize_global_metrics(lang_token_accs, lang_span_accs, lang_sample_accs)
 
-    # 保存到总结果
+
     final_results[lang] = lang_summary
 
     with open(result_output_path, "w", encoding="utf-8") as f:

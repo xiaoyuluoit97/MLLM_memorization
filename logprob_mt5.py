@@ -39,14 +39,8 @@ cache_path = os.path.join(base_dir, "model")
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, cache_dir=cache_path)
 model = MT5ForConditionalGeneration.from_pretrained(MODEL_NAME, cache_dir=cache_path).to("cuda")
 
-#model = MT5ForConditionalGeneration.from_pretrained(
-#    "google/mt5-xl",
-#    cache_dir=cache_path,
-#    torch_dtype="auto",  # 自动用半精度（如果卡支持fp16）
-##    device_map="auto",   # 自动切分放GPU/CPU
-#)
 
-model.eval()  # ✅ 加上这个！
+model.eval()
 
 
 def extract_spans_from_tokens_precisely(ids, max_extra_id=4, eos_token_id=1):
@@ -170,18 +164,16 @@ def random_sample_and_corrupt_batch(text_list, tokenizer, num_tokens=100, corrup
         selected_texts.append(selected_text)
 
     if len(corrupted_inputs) == 0:
-        raise ValueError("没有符合条件的样本，全部跳过了！")
+        raise ValueError("skip,no enough sample！")
 
     corrupted_inputs_batch = torch.stack(corrupted_inputs, dim=0)
     target_outputs_batch = torch.stack(target_outputs, dim=0)
 
     return corrupted_inputs_batch, target_outputs_batch, selected_texts
-import numpy as np
+
 
 def compute_mean_and_confidence_interval(acc_list, confidence_level=0.95):
-    """
-    计算均值和置信区间
-    """
+
     arr = np.array(acc_list)
     mean = arr.mean()
     std = arr.std(ddof=1)
@@ -223,10 +215,7 @@ import torch
 import torch.nn.functional as F
 
 def compute_encoder_decoder_ppl_verbose_batch(model, tokenizer, input_ids, labels, verbose=3):
-    """
-    高效批处理每条样本的 PPL 和 log-prob sum。
-    如果 verbose 为整数，则只打印前 N 条样本的 token-level log-likelihood。
-    """
+
     batch_size, seq_len = labels.shape
     decoder_input_ids = model._shift_right(labels)
 
@@ -337,7 +326,7 @@ for lang in languages:
                         input_ids=input_ids,
                         labels=labels,
                         tokenizer=tokenizer,
-                        verbose=0  # 控制打印前几条样本
+                        verbose=0  #
                     )
                     all_log_liks.extend(metrics["logliks"])
                     all_perplexities.extend(metrics["perplexities"])
@@ -350,11 +339,11 @@ for lang in languages:
                 continue
             
 
-    # 每个语言完成后做统计
+
     lang_summary = summarize_likelihood_metrics(all_log_liks, all_avg_nlls, all_perplexities)
 
 
-    # 保存到总结果
+
     final_results[lang] = lang_summary
 
     with open(result_output_path, "w", encoding="utf-8") as f:

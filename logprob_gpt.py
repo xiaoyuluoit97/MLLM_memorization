@@ -75,7 +75,6 @@ final_results = {}
 import math
 
 def visualize_token_logprobs(token_logprobs):
-    print("\n📊 每个 token 的 log-prob:")
     max_token_len = max(len(token) for token, _ in token_logprobs)
 
     for token, logprob in token_logprobs:

@@ -125,7 +125,7 @@ def evaluate_generation_metrics_per_sample(predicted_batch, target_batch, tokeni
 
 
 def compute_mean_and_confidence_interval(data, confidence=0.95):
-    # 过滤掉 None 和 NaN
+
     clean_data = [x for x in data if x is not None and not np.isnan(x)]
     
     if len(clean_data) == 0:
@@ -135,7 +135,7 @@ def compute_mean_and_confidence_interval(data, confidence=0.95):
     mean = np.mean(clean_data)
     
     if len(clean_data) == 1:
-        # 只有一个数据点时无法计算置信区间，返回 0 宽度
+
         return mean, (mean, mean)
 
     sem = st.sem(clean_data)
@@ -211,11 +211,7 @@ def save_exact_match_samples_as_txt(
 def random_sample_prefix_suffix_batch(
     text_list, tokenizer, num_tokens=100, suffix_ratio=0.15, seed=None
 ):
-    """
-    从每段文本中截取num_tokens长度的子串，然后
-    - 前(1-suffix_ratio)作为prefix
-    - 后(suffix_ratio)作为target
-    """
+
 
     # 批量encode
     batch = tokenizer(text_list, return_tensors="pt", padding=True, add_special_tokens=False,truncation=True, max_length=2048)
@@ -237,7 +233,7 @@ def random_sample_prefix_suffix_batch(
             input_ids = input_ids[:seq_len]
 
         if seq_len < num_tokens:
-            continue  # 跳过太短的样本
+            continue  # skip
 
         if seed is not None:
             random.seed(seed + i)
@@ -256,7 +252,7 @@ def random_sample_prefix_suffix_batch(
         selected_texts.append(tokenizer.decode(selected_ids, skip_special_tokens=False))
 
     if len(prefix_inputs) == 0:
-        raise ValueError("没有符合条件的样本，全部跳过了！")
+        raise ValueError("no sample, all skip")
 
     # 做padding到最长
     prefix_inputs_padded = torch.nn.utils.rnn.pad_sequence(prefix_inputs, batch_first=True, padding_value=tokenizer.pad_token_id)
@@ -363,19 +359,18 @@ for lang in languages:
 
 
             except Exception as e:
-                print(f"⚠️ Skipping batch repeat {repeat_idx} (seed={seed}) due to error: {e}")
+                print(f"⚠Skipping batch repeat {repeat_idx} (seed={seed}) due to error: {e}")
                 continue
 
 
     lang_summary = summarize_all_metrics(results_per_lang)
     final_results[lang] = lang_summary
 
-    # 实时保存
+
     with open(result_output_path, "w", encoding="utf-8") as f:
         json.dump(final_results, f, indent=2, ensure_ascii=False)
 
-# ==== 最终保存 ====
-print(f"\n✅ Final summary for ALL languages saved to {result_output_path}")
+print(f"\nFinal summary for ALL languages saved to {result_output_path}")
 
 
 
