@@ -57,7 +57,7 @@ for path in [data_dir, result_dir, memorization_path, cache_path]:
 model = GPT2LMHeadModel.from_pretrained(
     MODEL_NAME,
     cache_dir=cache_path,
-    torch_dtype=torch.float16  # 👈 加这一行
+    torch_dtype=torch.float16
 ).to("cuda")
 
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, cache_dir=cache_path, use_fast=False)
@@ -219,11 +219,11 @@ def save_logprob_samples_as_txt(lang, results, save_dir):
 # ==== MAIN LOOP ====
 
 for lang in languages:
-    print(f"\n🌍 Processing Language: {lang}")
+    print(f"\nProcessing Language: {lang}")
     file_path = os.path.join(data_dir, f"{lang}.jsonl")
 
     if not os.path.exists(file_path):
-        print(f"⚠️ File not found for language: {lang}, skipping.")
+        print(f"File not found for language: {lang}, skipping.")
         continue
         
     with open(file_path, "r", encoding="utf-8") as f:
@@ -255,7 +255,7 @@ for lang in languages:
                     "token_logprobs": token_log_probs.tolist(),
                     "total_logprob": total_log_prob.item()
                  })
-                 # Batch 版本结果
+
 
 
               
@@ -267,4 +267,4 @@ for lang in languages:
     with open(result_output_path, "w", encoding="utf-8") as f:
         json.dump(final_results, f, indent=2, ensure_ascii=False)
 
-print(f"\n✅ Final summary for ALL languages saved to {result_output_path}")
+print(f"\nFinal summary for ALL languages saved to {result_output_path}")

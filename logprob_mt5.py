@@ -90,7 +90,7 @@ def random_sample_and_corrupt_batch(text_list, tokenizer, num_tokens=100, corrup
         input_ids = input_ids[:seq_len]  # remove paddings
 
         if seq_len < num_tokens:
-            continue  # 跳过不足100 tokens的样本！
+            continue  #
 
         if seed is not None:
             random.seed(seed + i)
@@ -104,7 +104,7 @@ def random_sample_and_corrupt_batch(text_list, tokenizer, num_tokens=100, corrup
         num_spans = int(num_tokens_to_mask / mean_span_length)
 
         if num_spans == 0:
-            continue  # 如果算下来0个span，也跳过
+            continue  #
 
         lengths = [1] * num_spans
         remaining = num_tokens_to_mask - num_spans
@@ -114,7 +114,7 @@ def random_sample_and_corrupt_batch(text_list, tokenizer, num_tokens=100, corrup
             lengths[idx] += 1
             remaining -= 1
 
-        assert sum(lengths) == num_tokens_to_mask, "总mask数量不对！"
+        assert sum(lengths) == num_tokens_to_mask, "wrong all mask"
 
         available_positions = list(range(seq_len))
         spans = []
@@ -126,7 +126,7 @@ def random_sample_and_corrupt_batch(text_list, tokenizer, num_tokens=100, corrup
                     possible_starts.append(pos)
 
             if not possible_starts:
-                raise ValueError(f"无法插入长度为{span_len}的span，文本空间不足！")
+                raise ValueError(f"error, no enough space")
 
             start_idx = random.choice(possible_starts)
             end_idx = start_idx + span_len
@@ -186,9 +186,7 @@ def compute_mean_and_confidence_interval(acc_list, confidence_level=0.95):
     return mean, ci
 
 def summarize_likelihood_metrics(log_liks, avg_nlls, perplexities):
-    """
-    汇总 log-likelihood / avg NLL / perplexity 的统计指标
-    """
+
     total_samples = len(log_liks)
 
     loglik_mean, loglik_ci = compute_mean_and_confidence_interval(log_liks)
@@ -276,21 +274,15 @@ def compute_encoder_decoder_ppl_verbose_batch(model, tokenizer, input_ids, label
     return {
         "perplexities": ppl_list,
         "logliks": loglik_list,
-        "token_counts": count_list  # 可选，如果你要自己计算 avg_nll
+        "token_counts": count_list
     }
 
-
-
-
-# 参数
-
-# 创建保存目录
 os.makedirs(result_dir, exist_ok=True)
 timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M")
-# 总结果大字典
+
 final_results = {}
 result_output_path = os.path.join(result_dir, f"LOG_PREPLIXITY_{model_id}_{MAX_TOKEN}_{PREFIX}_{timestamp}.json")
-# 主循环
+
 
 for lang in languages:
     print(f"\n🌍 Processing Language: {lang}")
@@ -309,7 +301,7 @@ for lang in languages:
         batch_samples = samples[i:i + BATCH_SIZE]
         text_list = [item["text"] for item in batch_samples]
 
-        for repeat_idx, seed in enumerate(SEED_LIST):  # 遍历固定的5个seed
+        for repeat_idx, seed in enumerate(SEED_LIST):
             try:
                 input_ids, labels, selected_texts = random_sample_and_corrupt_batch(
                     text_list,
@@ -317,7 +309,7 @@ for lang in languages:
                     num_tokens=MAX_TOKEN,
                     corruption_rate=SUFIX_RATIO,
                     mean_span_length=3,
-                    seed=seed  # 传固定的 seed
+                    seed=seed  #
                 )
                 
                 with torch.no_grad():                    
