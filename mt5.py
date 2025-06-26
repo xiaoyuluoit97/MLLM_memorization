@@ -164,7 +164,7 @@ def evaluate_predictions_token_level_precisely(lang,pred_ids_batch, target_ids_b
         token_acc = token_correct / token_total if token_total > 0 else 0
         span_acc = span_correct / span_total if span_total > 0 else 0
         sample_acc = 1.0 if all_spans_correct else 0.0
-        # ⏺ 保存 exact match 样本
+  
         if sample_acc == 1.0:
             exact_match_inputs_index.append(i)
             exact_match_preds.append(pred_ids)
@@ -363,7 +363,7 @@ for lang in languages:
         batch_samples = samples[i:i + BATCH_SIZE]
         text_list = [item["text"] for item in batch_samples]
 
-        for repeat_idx, seed in enumerate(SEED_LIST):  # 遍历固定的5个seed
+        for repeat_idx, seed in enumerate(SEED_LIST):  # 5 seed
             try:
                 corrupted_inputs_batch, target_outputs_batch, selected_texts = random_sample_and_corrupt_batch(
                     text_list,
