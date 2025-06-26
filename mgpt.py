@@ -99,7 +99,7 @@ def evaluate_generation_metrics_per_sample(predicted_batch, target_batch, tokeni
 
         })
 
-    # 批量计算 ROUGE 和 BERTScore
+   
     rouge_result = rouge_metric.compute(
         predictions=predictions_text,
         references=references_text,
@@ -109,7 +109,6 @@ def evaluate_generation_metrics_per_sample(predicted_batch, target_batch, tokeni
 
     #P, R, F1 = bert_score_fn(predictions_text, references_text, lang="en", verbose=False)
 
-    # 更新每个样本的结果
     for i in range(len(results)):
         results[i]["rouge1"] = rouge_result["rouge1"][i]
         results[i]["rouge2"] = rouge_result["rouge2"][i]
@@ -164,7 +163,7 @@ def summarize_all_metrics(results):
         }
         print(f"{key:<15}: {mean*100:.2f}% (95% CI: {ci[0]*100:.2f}% ~ {ci[1]*100:.2f}%)")
 
-    # 附加统计信息
+ 
     total_samples = len(results)
     full_match = sum(r["exact_match"] == 1.0 for r in results)
     print(f"Exact Match Samples : {full_match}/{total_samples} ({(full_match/total_samples)*100:.2f}%)")
@@ -213,7 +212,7 @@ def random_sample_prefix_suffix_batch(
 ):
 
 
-    # 批量encode
+   
     batch = tokenizer(text_list, return_tensors="pt", padding=True, add_special_tokens=False,truncation=True, max_length=2048)
     input_ids_batch = batch['input_ids'].to("cuda")
 
@@ -254,7 +253,7 @@ def random_sample_prefix_suffix_batch(
     if len(prefix_inputs) == 0:
         raise ValueError("no sample, all skip")
 
-    # 做padding到最长
+    
     prefix_inputs_padded = torch.nn.utils.rnn.pad_sequence(prefix_inputs, batch_first=True, padding_value=tokenizer.pad_token_id)
     target_outputs_padded = torch.nn.utils.rnn.pad_sequence(target_outputs, batch_first=True, padding_value=tokenizer.pad_token_id)
 
@@ -267,7 +266,7 @@ def batch_strip_prefix_and_cleanup(
     batch_cleaned_outputs = []
 
     if remove_token_ids is None:
-        remove_token_ids = [250099]  # 默认移除 <extra_id_0>，你可以自己加
+        remove_token_ids = [250099]  
 
     batch_size = output_ids_batch.shape[0]
 
