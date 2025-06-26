@@ -79,7 +79,7 @@ def save_exact_match_samples_as_txt(
         target_batch,
         exact_match_indices,
         tokenizer,
-        save_dir="/home/cs.aau.dk/hk10kt/workplace/emnlp25/results/memorization_sample",
+        save_dir="emnlp25/results/memorization_sample",
         verbe=False
 ):
     os.makedirs(save_dir, exist_ok=True)
