@@ -53,7 +53,19 @@ final_results = {}
 
 
 def evaluate_generation_metrics_per_sample(predicted_batch, target_batch, tokenizer, verbose=True):
+    """
+    Evaluate text generation quality per sample using BLEU, ROUGE, and token-level accuracy.
 
+    Args:
+        predicted_batch (List[torch.Tensor]): List of predicted token ID sequences.
+        target_batch (List[torch.Tensor]): List of reference token ID sequences.
+        tokenizer: Tokenizer for decoding tokens.
+        verbose (bool): Whether to print per-sample details.
+
+    Returns:
+        results (List[dict]): List of dictionaries with metrics for each sample.
+        exact_match_indices (List[int]): Indices where prediction exactly matches reference.
+    """
     rouge_metric = load_metric("rouge")
     smoothing = SmoothingFunction().method1
 
@@ -124,7 +136,17 @@ def evaluate_generation_metrics_per_sample(predicted_batch, target_batch, tokeni
 
 
 def compute_mean_and_confidence_interval(data, confidence=0.95):
+    """
+    Compute the mean and confidence interval of a list of numerical values.
 
+    Args:
+        data (List[float]): List of metric values.
+        confidence (float): Confidence level for the interval.
+
+    Returns:
+        mean (float): Mean value.
+        ci (Tuple[float, float]): Lower and upper bounds of the confidence interval.
+    """
     clean_data = [x for x in data if x is not None and not np.isnan(x)]
     
     if len(clean_data) == 0:
@@ -142,7 +164,15 @@ def compute_mean_and_confidence_interval(data, confidence=0.95):
     return mean, (mean - ci_range, mean + ci_range)
 
 def summarize_all_metrics(results):
+    """
+    Aggregate and print summary statistics (mean and confidence intervals) for all metrics.
 
+    Args:
+        results (List[dict]): Per-sample evaluation metrics.
+
+    Returns:
+        summary (dict): Summary statistics and counts of exact matches.
+    """
     def extract(key): return [r[key] for r in results]
 
     metrics_to_summarize = [
@@ -184,6 +214,18 @@ def save_exact_match_samples_as_txt(
     tokenizer,
     save_dir="emnlp25/results/memorization_sample"
 ):
+    """
+    Save examples where the model's output exactly matches the reference to a text file.
+
+    Args:
+        lang (str): Language identifier.
+        input_texts (torch.Tensor): Original input prefix IDs.
+        predicted_batch (List[torch.Tensor]): Generated output IDs.
+        target_batch (torch.Tensor): Reference output IDs.
+        exact_match_indices (List[int]): Indices of exact matches.
+        tokenizer: Tokenizer for decoding.
+        save_dir (str): Directory to save text files.
+    """
     os.makedirs(save_dir, exist_ok=True)
 
     save_path = os.path.join(save_dir, f"exact_match_samples_{lang}.txt")
@@ -210,7 +252,21 @@ def save_exact_match_samples_as_txt(
 def random_sample_prefix_suffix_batch(
     text_list, tokenizer, num_tokens=100, suffix_ratio=0.15, seed=None
 ):
+    """
+    Randomly sample fixed-length sequences from text as prefix and suffix pairs.
 
+    Args:
+        text_list (List[str]): Raw text samples.
+        tokenizer: Tokenizer to encode text.
+        num_tokens (int): Total tokens to sample per example.
+        suffix_ratio (float): Fraction of tokens used as suffix target.
+        seed (int): Random seed for reproducibility.
+
+    Returns:
+        prefix_inputs_padded (torch.Tensor): Batch of prefix token IDs.
+        target_outputs_padded (torch.Tensor): Batch of suffix token IDs.
+        selected_texts (List[str]): Decoded sampled sequences.
+    """
 
    
     batch = tokenizer(text_list, return_tensors="pt", padding=True, add_special_tokens=False,truncation=True, max_length=2048)
@@ -263,6 +319,18 @@ def random_sample_prefix_suffix_batch(
 def batch_strip_prefix_and_cleanup(
     output_ids_batch, prefix_inputs_batch, tokenizer, remove_token_ids=None
 ):
+    """
+    Remove the prefix tokens and cleanup unwanted tokens from generated outputs.
+
+    Args:
+        output_ids_batch (torch.Tensor): Model-generated token IDs (prefix + suffix).
+        prefix_inputs_batch (torch.Tensor): Input prefix IDs.
+        tokenizer: Tokenizer for token IDs.
+        remove_token_ids (List[int], optional): Token IDs to filter out from outputs.
+
+    Returns:
+        batch_cleaned_outputs (List[torch.Tensor]): Cleaned suffix token sequences.
+    """
     batch_cleaned_outputs = []
 
     if remove_token_ids is None:
