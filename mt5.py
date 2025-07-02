@@ -4,29 +4,33 @@ import numpy as np
 from transformers import AutoTokenizer, MT5ForConditionalGeneration
 from tqdm import tqdm
 from datetime import datetime
-import os
-os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:64"
 import random
 import torch
-#SEED_LIST = [10777140, 10, 19970624, 666666, 20250421]
+
+# Configure CUDA memory allocation
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:64"
+
+# Experiment seeds and parameters
 SEED_LIST = [10777140]
 SAMPLE_NUMBERS = 50000
-#EXTRA_ID_0 = 256299
 EXTRA_ID_0 = 250099
 
 BATCH_SIZE = 1000
 SUFIX_RATIO = 0.3
 MAX_TOKEN = 50
-PREFIX = str(int(SUFIX_RATIO*MAX_TOKEN))
+PREFIX = str(int(SUFIX_RATIO * MAX_TOKEN))
 MODEL_NAME = "google/mt5-base"
 print(PREFIX)
 
-languages = ['af', 'am', 'be', 'bg', 'ca', 'ceb', 'cs', 'cy', 'da', 'de', 'el', 'en', 'eo', 'et', 'eu', 'fi', 'fil', 'fr',
- 'ga', 'gd', 'gl', 'gu', 'ha', 'hi', 'hu', 'hy', 'id', 'ig', 'is', 'it', 'ja', 'jv', 'ka', 'kk', 'km', 'kn',
- 'ko', 'ky', 'lb', 'lo', 'lt', 'lv', 'mi', 'mk', 'ml', 'mr', 'mt', 'my', 'ne', 'nl', 'ny', 'pa', 'pl', 'pt',
- 'ro', 'ru', 'sd', 'si', 'sk', 'sl', 'sm', 'sn', 'so', 'sr', 'st', 'su', 'sv', 'sw', 'ta', 'te', 'tg', 'th',
- 'tr', 'uk', 'ur', 'vi', 'xh', 'yo', 'zu', 'ar', 'zh', 'fa', 'no', 'es', 'ht', 'ms', 'sq', 'ku', 'yi', 'uz',
- 'ps', 'mg', 'az', 'bn', 'iw']
+# List of languages to process
+languages = [
+    'af', 'am', 'be', 'bg', 'ca', 'ceb', 'cs', 'cy', 'da', 'de', 'el', 'en', 'eo', 'et', 'eu', 'fi', 'fil', 'fr',
+    'ga', 'gd', 'gl', 'gu', 'ha', 'hi', 'hu', 'hy', 'id', 'ig', 'is', 'it', 'ja', 'jv', 'ka', 'kk', 'km', 'kn',
+    'ko', 'ky', 'lb', 'lo', 'lt', 'lv', 'mi', 'mk', 'ml', 'mr', 'mt', 'my', 'ne', 'nl', 'ny', 'pa', 'pl', 'pt',
+    'ro', 'ru', 'sd', 'si', 'sk', 'sl', 'sm', 'sn', 'so', 'sr', 'st', 'su', 'sv', 'sw', 'ta', 'te', 'tg', 'th',
+    'tr', 'uk', 'ur', 'vi', 'xh', 'yo', 'zu', 'ar', 'zh', 'fa', 'no', 'es', 'ht', 'ms', 'sq', 'ku', 'yi', 'uz',
+    'ps', 'mg', 'az', 'bn', 'iw'
+]
 
 model_id = MODEL_NAME.split("/")[-1]
 base_dir = os.getcwd()
@@ -35,19 +39,28 @@ result_dir = os.path.join(base_dir, "results")
 memorization_path = os.path.join(result_dir, "memorization_sample", model_id)
 cache_path = os.path.join(base_dir, "model")
 
-
+# Load tokenizer and model
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, cache_dir=cache_path)
 model = MT5ForConditionalGeneration.from_pretrained(MODEL_NAME, cache_dir=cache_path).to("cuda")
-
-
 model.eval()
 
 
 def extract_spans_from_tokens_precisely(ids, max_extra_id=4, eos_token_id=1):
+    """
+    Extract masked spans from token IDs as per T5-style corruption.
+
+    Args:
+        ids (List[int]): Token ID sequence.
+        max_extra_id (int): Maximum number of extra IDs expected.
+        eos_token_id (int): EOS token ID.
+
+    Returns:
+        spans (List[List[int]]): List of token spans.
+    """
     spans = []
     current_span = []
     capturing = False
-    current_expected_extra_id = EXTRA_ID_0  # <extra_id_0>
+    current_expected_extra_id = EXTRA_ID_0  # Start with <extra_id_0>
 
     for token in ids:
         if token == current_expected_extra_id:
@@ -73,15 +86,28 @@ def extract_spans_from_tokens_precisely(ids, max_extra_id=4, eos_token_id=1):
 
 
 def save_exact_match_samples_as_txt(
-        lang,
-        input_texts,
-        predicted_batch,
-        target_batch,
-        exact_match_indices,
-        tokenizer,
-        save_dir="emnlp25/results/memorization_sample",
-        verbe=False
+    lang,
+    input_texts,
+    predicted_batch,
+    target_batch,
+    exact_match_indices,
+    tokenizer,
+    save_dir="emnlp25/results/memorization_sample",
+    verbe=False
 ):
+    """
+    Save exact match samples to a text file for inspection.
+
+    Args:
+        lang (str): Language identifier.
+        input_texts (torch.Tensor): Batch of corrupted input IDs.
+        predicted_batch (List[List[int]]): Predicted token IDs.
+        target_batch (List[List[int]]): Reference token IDs.
+        exact_match_indices (List[int]): Indices of exact matches.
+        tokenizer: Tokenizer to decode tokens.
+        save_dir (str): Output directory.
+        verbe (bool): Verbose flag (unused).
+    """
     os.makedirs(save_dir, exist_ok=True)
     assert len(predicted_batch) == len(target_batch) == len(exact_match_indices), \
         "Mismatch in exact match subset lengths!"
@@ -89,9 +115,7 @@ def save_exact_match_samples_as_txt(
 
     with open(save_path, "a", encoding="utf-8") as f_out:
         for i, idx in enumerate(exact_match_indices):
-
             sample_input = tokenizer.decode(input_texts[idx], skip_special_tokens=True)
-
             reference = tokenizer.decode(target_batch[i], skip_special_tokens=True)
             prediction = tokenizer.decode(predicted_batch[i], skip_special_tokens=True)
 
@@ -101,16 +125,39 @@ def save_exact_match_samples_as_txt(
             f_out.write("=" * 50 + "\n")
 
 
-def evaluate_predictions_token_level_precisely(lang,pred_ids_batch, target_ids_batch, corrupted_inputs_batch,max_extra_id=4, tokenizer=None, eos_token_id=1, verbose=True):
+def evaluate_predictions_token_level_precisely(
+    lang,
+    pred_ids_batch,
+    target_ids_batch,
+    corrupted_inputs_batch,
+    max_extra_id=4,
+    tokenizer=None,
+    eos_token_id=1,
+    verbose=True
+):
+    """
+    Evaluate token, span, and sample-level accuracy for predicted sequences.
 
-   
+    Args:
+        lang (str): Language identifier.
+        pred_ids_batch (torch.Tensor): Generated output IDs.
+        target_ids_batch (torch.Tensor): Reference output IDs.
+        corrupted_inputs_batch (torch.Tensor): Corrupted input IDs.
+        max_extra_id (int): Max number of extra IDs.
+        tokenizer: Tokenizer to decode tokens.
+        eos_token_id (int): EOS token ID.
+        verbose (bool): Whether to print per-sample details.
+
+    Returns:
+        dict: Accuracies per level.
+    """
     batch_token_correct = []
     batch_span_correct = []
     batch_sample_correct = []
-
     exact_match_inputs_index = []
     exact_match_preds = []
     exact_match_targets = []
+
     for i in range(pred_ids_batch.shape[0]):
         pred_ids = pred_ids_batch[i].tolist()
         target_ids = target_ids_batch[i].tolist()
@@ -120,10 +167,8 @@ def evaluate_predictions_token_level_precisely(lang,pred_ids_batch, target_ids_b
 
         token_correct = 0
         token_total = 0
-
         span_correct = 0
         span_total = 0
-
         all_spans_correct = True
 
         if verbose:
@@ -141,18 +186,14 @@ def evaluate_predictions_token_level_precisely(lang,pred_ids_batch, target_ids_b
             token_total += len(target_set)
 
             is_span_correct = (pred_span == target_span)
-
             if not is_span_correct:
                 all_spans_correct = False
 
             if verbose:
                 print(f"[Mask {idx}]")
-                if tokenizer is not None:
+                if tokenizer:
                     print("Predicted:", tokenizer.decode(pred_span))
                     print("Target   :", tokenizer.decode(target_span))
-                else:
-                    print("Predicted:", pred_span)
-                    print("Target   :", target_span)
                 print(f"Tokens hit: {token_hits}/{len(target_set)}")
                 print(f"Span correct: {is_span_correct}\n")
 
@@ -164,7 +205,7 @@ def evaluate_predictions_token_level_precisely(lang,pred_ids_batch, target_ids_b
         token_acc = token_correct / token_total if token_total > 0 else 0
         span_acc = span_correct / span_total if span_total > 0 else 0
         sample_acc = 1.0 if all_spans_correct else 0.0
-  
+
         if sample_acc == 1.0:
             exact_match_inputs_index.append(i)
             exact_match_preds.append(pred_ids)
@@ -175,21 +216,21 @@ def evaluate_predictions_token_level_precisely(lang,pred_ids_batch, target_ids_b
         batch_sample_correct.append(sample_acc)
 
         if verbose:
-            print(f"Token-level Accuracy for Sample {i}: {token_acc*100:.2f}%")
-            print(f"Span-level Accuracy for Sample {i}: {span_acc*100:.2f}%")
-            print(f"Sample-level Accuracy for Sample {i}: {sample_acc*100:.2f}%")
+            print(f"Token-level Accuracy: {token_acc*100:.2f}%")
+            print(f"Span-level Accuracy : {span_acc*100:.2f}%")
+            print(f"Sample-level Accuracy: {sample_acc*100:.2f}%")
             print("==============================\n")
 
-
-    if len(exact_match_inputs_index)>0:
-        save_exact_match_samples_as_txt(lang,
-                                    corrupted_inputs_batch,
-                                    exact_match_preds,
-                                    exact_match_targets,
-                                    exact_match_inputs_index,
-                                    tokenizer,
-                                    memorization_path,
-                                    verbose)
+    if exact_match_inputs_index:
+        save_exact_match_samples_as_txt(
+            lang,
+            corrupted_inputs_batch,
+            exact_match_preds,
+            exact_match_targets,
+            exact_match_inputs_index,
+            tokenizer,
+            memorization_path
+        )
 
     return {
         "token_level": batch_token_correct,
@@ -198,12 +239,32 @@ def evaluate_predictions_token_level_precisely(lang,pred_ids_batch, target_ids_b
     }
 
 
+def random_sample_and_corrupt_batch(
+    text_list,
+    tokenizer,
+    num_tokens=100,
+    corruption_rate=0.15,
+    mean_span_length=3,
+    seed=None
+):
+    """
+    Randomly sample text chunks and create masked corruption for T5 denoising.
 
+    Args:
+        text_list (List[str]): Raw text samples.
+        tokenizer: Tokenizer to encode text.
+        num_tokens (int): Length of sampled sequences.
+        corruption_rate (float): Fraction of tokens to mask.
+        mean_span_length (int): Average length of mask spans.
+        seed (int): Random seed.
 
-def random_sample_and_corrupt_batch(text_list, tokenizer, num_tokens=100, corruption_rate=0.15, mean_span_length=3, seed=None):
-
+    Returns:
+        corrupted_inputs_batch (torch.Tensor): Inputs with <extra_id> placeholders.
+        target_outputs_batch (torch.Tensor): Targets containing masked spans.
+        selected_texts (List[str]): Raw decoded selected texts.
+    """
     batch = tokenizer(text_list, return_tensors="pt", padding=True, truncation=False, add_special_tokens=False)
-    input_ids_batch = batch['input_ids'].to("cuda")  # shape: (batch_size, seq_len)
+    input_ids_batch = batch['input_ids'].to("cuda")
 
     corrupted_inputs = []
     target_outputs = []
@@ -214,7 +275,7 @@ def random_sample_and_corrupt_batch(text_list, tokenizer, num_tokens=100, corrup
     for i in range(batch_size):
         input_ids = input_ids_batch[i]
         seq_len = (input_ids != tokenizer.pad_token_id).sum().item()
-        input_ids = input_ids[:seq_len]  # remove paddings
+        input_ids = input_ids[:seq_len]
 
         if seq_len < num_tokens:
             continue
@@ -223,15 +284,12 @@ def random_sample_and_corrupt_batch(text_list, tokenizer, num_tokens=100, corrup
             random.seed(seed + i)
 
         start_idx = random.randint(0, seq_len - num_tokens)
-        selected_ids = input_ids[start_idx: start_idx + num_tokens]
+        selected_ids = input_ids[start_idx:start_idx + num_tokens]
 
         selected_text = tokenizer.decode(selected_ids, skip_special_tokens=False)
         seq_len = selected_ids.shape[0]
         num_tokens_to_mask = int(seq_len * corruption_rate)
-        num_spans = int(num_tokens_to_mask / mean_span_length)
-
-        if num_spans == 0:
-            continue
+        num_spans = max(1, int(num_tokens_to_mask / mean_span_length))
 
         lengths = [1] * num_spans
         remaining = num_tokens_to_mask - num_spans
@@ -241,25 +299,22 @@ def random_sample_and_corrupt_batch(text_list, tokenizer, num_tokens=100, corrup
             lengths[idx] += 1
             remaining -= 1
 
-        assert sum(lengths) == num_tokens_to_mask, "wrong total mask！"
-
         available_positions = list(range(seq_len))
         spans = []
 
         for span_len in lengths:
-            possible_starts = []
-            for pos in available_positions:
-                if all((pos + offset) in available_positions for offset in range(span_len)):
-                    possible_starts.append(pos)
+            possible_starts = [
+                pos for pos in available_positions
+                if all((pos + offset) in available_positions for offset in range(span_len))
+            ]
 
             if not possible_starts:
-                raise ValueError(f"can't insert {span_len} span，no enough length！")
+                raise ValueError(f"Cannot insert span of length {span_len}, no space available!")
 
             start_idx = random.choice(possible_starts)
             end_idx = start_idx + span_len
 
             spans.append((start_idx, end_idx))
-
             for idx in range(start_idx - 1, end_idx + 1):
                 if idx in available_positions:
                     available_positions.remove(idx)
@@ -291,12 +346,13 @@ def random_sample_and_corrupt_batch(text_list, tokenizer, num_tokens=100, corrup
         selected_texts.append(selected_text)
 
     if len(corrupted_inputs) == 0:
-        raise ValueError("skip all！")
+        raise ValueError("No samples to process, all skipped!")
 
     corrupted_inputs_batch = torch.stack(corrupted_inputs, dim=0)
     target_outputs_batch = torch.stack(target_outputs, dim=0)
 
     return corrupted_inputs_batch, target_outputs_batch, selected_texts
+
 
 
 def compute_mean_and_confidence_interval(acc_list, confidence_level=0.95):
